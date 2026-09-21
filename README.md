@@ -1,4 +1,4 @@
-# bill# Palermo Scraper
+# Palermo Scraper
 
 Scraper de datos del **Hipódromo Argentino de Palermo** para alimentar la base `bill_benter_v2`, usada para predecir resultados de carreras y detectar *value bets*.
 
@@ -98,36 +98,43 @@ Cada carrera dentro de la página de reunión tiene **3 bloques**:
 ---
 
 ## 5. Estructura del repositorio
--benter-docsPalermoScraper.sln
+
+```
+PalermoScraper.sln
 │
 ├── src/
-│ ├── PalermoScraper.Domain/ # Entidades, Value Objects, Interfaces. Sin dependencias.
-│ │ ├── Entities/
-│ │ ├── ValueObjects/
-│ │ └── Abstractions/
-│ │ ├── Repositories/
-│ │ └── Scraping/
-│ │
-│ ├── PalermoScraper.Application/ # Servicios de orquestación.
-│ │ └── Services/
-│ │
-│ ├── PalermoScraper.Infrastructure/ # HTTP, parsers, repositorios ADO.NET.
-│ │ ├── Http/
-│ │ ├── Parsing/
-│ │ ├── Scrapers/
-│ │ └── Repositories/
-│ │
-│ └── PalermoScraper.Console/ # Punto de entrada + configuración.
-│ ├── Program.cs
-│ └── appsettings.json
+│   ├── PalermoScraper.Domain/          # Entidades, Value Objects, Interfaces. Sin dependencias.
+│   │   ├── Entities/
+│   │   ├── ValueObjects/
+│   │   └── Abstractions/
+│   │       ├── Repositories/
+│   │       └── Scraping/
+│   │
+│   ├── PalermoScraper.Application/     # Servicios de orquestación.
+│   │   └── Services/
+│   │
+│   ├── PalermoScraper.Infrastructure/  # HTTP, parsers, repositorios ADO.NET.
+│   │   ├── Http/
+│   │   ├── Parsing/
+│   │   ├── Scrapers/
+│   │   └── Repositories/
+│   │
+│   └── PalermoScraper.Console/         # Punto de entrada + configuración.
+│       ├── Program.cs
+│       └── appsettings.json
 │
 └── tests/
-└── PalermoScraper.Tests/ # Tests unitarios con HTML real como fixture.
-└── Fixtures/                           
+    └── PalermoScraper.Tests/           # Tests unitarios con HTML real como fixture.
+        └── Fixtures/
+```
+
 ### 5.1 Dependencias entre proyectos
+
+```
 Console ──► Infrastructure ──► Application ──► Domain
-│ │ │
-└──────────────┴──────────────────┘
+   │              │                  │
+   └──────────────┴──────────────────┘
+```
 
 El dominio no depende de nadie. Las flechas solo van hacia adentro.
 
@@ -176,59 +183,80 @@ IEntrenadorRepository    → ObtenerOInsertarAsync
 ICarreraRepository       → ObtenerOInsertarAsync
 IParticipacionRepository → ObtenerOInsertarAsync
 IResultadoRepository     → UpsertAsync
-### 8.2 Scrapers (Domain/Abstractions/Scraping)
+```
+
+Todas devuelven el `ID` generado para poder encadenar inserciones respetando las FKs.
+
+### 8.2 Scrapers (`Domain/Abstractions/Scraping`)
+
+```csharp
 ICalendarioScraper → ObtenerReunionesAsync(int anio)
 IReunionScraper    → ScrapearAsync(int verDiaId, DateOnly fecha)
-9. Mapeo HTML → Base de datos
-9.1 Bloque A — Metadata de carrera
-Celda HTML	Campo BD	Notas
-FECHA	Carreras.Fecha	dd/MM/yyyy
-HORA	no mapeado	Sin columna en BD
-DISTANCIA	Carreras.Distancia	int, en metros
-PISTA	Carreras.Superficie + Carreras.CondicionPista	split por |
-TIEMPO	no mapeado	Tiempo del ganador, sin columna
-CONDICIóN	Carreras.ClaseCarrera	texto completo
-PREMIOS	Carreras.PremioTotal	primer $ = monto del 1°
-Nro. X - NOMBRE	Carreras.NombreCarrera	del <h2>
-9.2 Bloque B — Tabla de participantes
-Columna HTML	Campo BD	Notas
-POS..	Resultados_Carreras.PosicionFinal	RET → NULL
-NRO.	Participaciones.NumeroCaja	int
-COMPETIDOR	Caballos.Nombre	+ ver-caballo/{id} en el href
-DISTANCIA.	Resultados_Carreras.DistanciaGanador	texto → parseo tolerante
-JOCKEY	Jinetes.Nombre	
-CUIDADOR	Entrenadores.Nombre	
-CABALLERIZA.	no mapeado	Sin columna en BD
-PESO JOCKEY / CABALLO	Participaciones.PesoAsignado	split por /, se toma el primero
-PAGARIA	Participaciones.Odds	decimal
-9.3 Bloque C — Datos del ganador
-Celda HTML	Campo BD	Notas
-Nombre completo	Caballos.Nombre	confirmación
-Fecha de nacimiento	Caballos.FechaNacimiento	dd-MM-yyyy
-Sexo	Caballos.Sexo	MACHO → M, HEMBRA → H
-Pelaje	Caballos.Color	
-Criador	Caballos.Criador	
-Caballeriza	no mapeado	Sin columna en BD
-Padre, Madre, Abuelo Materno	no mapeado	Sin columna en BD
-9.4 Datos descartados (sin columna en BD)
-Los siguientes datos se extraen del HTML pero no se persisten porque el DDL no tiene columna. Se loguean en nivel Debug para auditoría:
+```
 
-Hora de la carrera
+---
 
-Tiempo del ganador
+## 9. Mapeo HTML → Base de datos
 
-Peso del caballo (segundo valor de PESO JOCKEY / CABALLO)
+### 9.1 Bloque A — Metadata de carrera
 
-Caballeriza
+| Celda HTML | Campo BD | Notas |
+|---|---|---|
+| `FECHA` | `Carreras.Fecha` | dd/MM/yyyy |
+| `HORA` | *no mapeado* | Sin columna en BD |
+| `DISTANCIA` | `Carreras.Distancia` | int, en metros |
+| `PISTA` | `Carreras.Superficie` + `Carreras.CondicionPista` | split por `\|` |
+| `TIEMPO` | *no mapeado* | Tiempo del ganador, sin columna |
+| `CONDICIóN` | `Carreras.ClaseCarrera` | texto completo |
+| `PREMIOS` | `Carreras.PremioTotal` | primer `$` = monto del 1° |
+| `Nro. X - NOMBRE` | `Carreras.NombreCarrera` | del `<h2>` |
 
-Padre, madre, abuelo materno
+### 9.2 Bloque B — Tabla de participantes
 
-Dividendos (Exacta, Trifecta, etc.)
+| Columna HTML | Campo BD | Notas |
+|---|---|---|
+| `POS..` | `Resultados_Carreras.PosicionFinal` | `RET` → `NULL` |
+| `NRO.` | `Participaciones.NumeroCaja` | int |
+| `COMPETIDOR` | `Caballos.Nombre` | + `ver-caballo/{id}` en el href |
+| `DISTANCIA.` | `Resultados_Carreras.DistanciaGanador` | texto → parseo tolerante |
+| `JOCKEY` | `Jinetes.Nombre` | |
+| `CUIDADOR` | `Entrenadores.Nombre` | |
+| `CABALLERIZA.` | *no mapeado* | Sin columna en BD |
+| `PESO JOCKEY / CABALLO` | `Participaciones.PesoAsignado` | split por `/`, se toma el primero |
+| `PAGARIA` | `Participaciones.Odds` | decimal |
 
-Si en el futuro se decide persistir alguno, solo hay que agregar la columna al DDL y extender el repositorio. El parser ya los extrae.
+### 9.3 Bloque C — Datos del ganador
+
+| Celda HTML | Campo BD | Notas |
+|---|---|---|
+| `Nombre completo` | `Caballos.Nombre` | confirmación |
+| Fecha de nacimiento | `Caballos.FechaNacimiento` | dd-MM-yyyy |
+| `Sexo` | `Caballos.Sexo` | MACHO → M, HEMBRA → H |
+| `Pelaje` | `Caballos.Color` | |
+| `Criador` | `Caballos.Criador` | |
+| `Caballeriza` | *no mapeado* | Sin columna en BD |
+| `Padre`, `Madre`, `Abuelo Materno` | *no mapeado* | Sin columna en BD |
+
+### 9.4 Datos descartados (sin columna en BD)
+
+Los siguientes datos se extraen del HTML pero **no se persisten** porque el DDL no tiene columna. Se loguean en nivel `Debug` para auditoría:
+
+- Hora de la carrera
+- Tiempo del ganador
+- Peso del caballo (segundo valor de `PESO JOCKEY / CABALLO`)
+- Caballeriza
+- Padre, madre, abuelo materno
+- Dividendos (Exacta, Trifecta, etc.)
+
+> Si en el futuro se decide persistir alguno, solo hay que agregar la columna al DDL y extender el repositorio. El parser ya los extrae.
+
+---
 
 ## 10. Estrategia de scraping
+
 ### 10.1 Flujo general
+
+```
 ┌────────────────────────────────────────────────┐
 │ FASE 1: Descubrir reuniones                    │
 │ GET /es/turf/calendario-de-carreras/{año}      │
@@ -249,3 +277,163 @@ Si en el futuro se decide persistir alguno, solo hay que agregar la columna al D
 │ Hipodromo → Caballo/Jinete/Entrenador          │
 │ → Carrera → Participacion → Resultado          │
 └────────────────────────────────────────────────┘
+```
+
+### 10.2 Idempotencia
+
+Cada repositorio implementa `ObtenerOInsertar` siguiendo el patrón:
+
+```sql
+IF NOT EXISTS (SELECT 1 FROM dbo.Tabla WHERE clave = @clave)
+BEGIN
+    INSERT INTO dbo.Tabla (...) VALUES (...);
+    SET @id = SCOPE_IDENTITY();
+END
+ELSE
+BEGIN
+    SELECT @id = ID FROM dbo.Tabla WHERE clave = @clave;
+    -- opcional: UPDATE con ISNULL para completar campos faltantes
+END
+SELECT @id;
+```
+
+Esto permite correr el scraper tantas veces como sea necesario sin duplicar.
+
+### 10.3 Rate limiting
+
+- **2 segundos** entre requests por defecto.
+- Configurable en `appsettings.json` → `Scraper:DelayEntreRequestsMs`.
+- Se aplica tanto entre páginas de reunión como entre años del calendario.
+
+### 10.4 Manejo de errores
+
+- **Retry con Polly**: 3 intentos, backoff exponencial (2s, 4s, 8s) ante errores de red o HTTP 5xx.
+- **Fallos por reunión**: se loguean y se continúa con la siguiente. No se aborta el scraping completo.
+- **HTML crudo guardado**: cada HTML fallido se guarda en `logs/html-fallidos/` para reprocesar sin volver a pegarle al sitio.
+
+---
+
+## 11. Configuración
+
+`src/PalermoScraper.Console/appsettings.json`:
+
+```json
+{
+  "ConnectionStrings": {
+    "BillBenter": "Server=localhost;Database=bill_benter_v2;Trusted_Connection=True;TrustServerCertificate=True;"
+  },
+  "Scraper": {
+    "BaseUrl": "https://old.palermo.com.ar",
+    "DelayEntreRequestsMs": 2000,
+    "AnioDesde": 2021,
+    "AnioHasta": 2026
+  },
+  "Serilog": {
+    "MinimumLevel": "Information"
+  }
+}
+```
+
+> Marcar `appsettings.json` con **Copy to Output Directory: Copy if newer**.
+
+---
+
+## 12. Cómo ejecutar
+
+### 12.1 Modos disponibles
+
+```bash
+# Scrapear el calendario del año configurado (no persiste, solo lista)
+dotnet run --project src/PalermoScraper.Console -- calendario
+
+# Scrapear y persistir una reunión completa
+dotnet run --project src/PalermoScraper.Console -- reunion 24834
+```
+
+### 12.2 Requisitos previos
+
+1. Base `bill_benter_v2` creada con el DDL completo.
+2. Cadena de conexión configurada en `appsettings.json`.
+3. .NET 8 SDK instalado.
+
+### 12.3 Logs
+
+- Consola (Serilog).
+- Archivo diario en `logs/scraper-YYYYMMDD.log`.
+
+---
+
+## 13. Roadmap
+
+### Fase 1 — Esqueleto ✅ *(en progreso)*
+- [x] Estructura de la solución (Clean Architecture)
+- [x] Entidades del dominio
+- [x] Value Objects
+- [x] Interfaces de repositorio y scraper
+- [ ] Configuración + DI + `Program.cs`
+
+### Fase 2 — Parsers y Scrapers
+- [ ] `CalendarioParser` + tests con HTML real
+- [ ] `CalendarioScraper`
+- [ ] `ReunionParser` (3 bloques) + tests
+- [ ] `ReunionScraper`
+- [ ] `CaballoParser` + `CaballoScraper` (opcional)
+
+### Fase 3 — Persistencia
+- [ ] `Database` (ya creado)
+- [ ] `HipodromoRepository`
+- [ ] `CaballoRepository`
+- [ ] `JineteRepository`
+- [ ] `EntrenadorRepository`
+- [ ] `CarreraRepository`
+- [ ] `ParticipacionRepository`
+- [ ] `ResultadoRepository`
+
+### Fase 4 — Orquestación
+- [ ] `ScrapeoCalendarioService`
+- [ ] `ScrapeoReunionService`
+- [ ] Modo `reunion` funcional end-to-end
+- [ ] Modo `historico` (batch de varios años)
+- [ ] Ejecución de `sp_RecalcularVariablesPointInTime` al finalizar
+
+### Fase 5 — Operación
+- [ ] Programación diaria (Task Scheduler / cron)
+- [ ] Métricas de scraping (requests, éxitos, fallos)
+- [ ] Alertas ante cambios de estructura HTML
+
+---
+
+## 14. Convenciones de código
+
+### 14.1 Nombres
+
+- **Entidades y propiedades**: PascalCase en español, igual que las columnas de la BD (`HipodromoID`, `NombreCarrera`).
+- **Interfaces**: prefijo `I` + PascalCase (`ICaballoRepository`).
+- **Métodos async**: sufijo `Async` (`ObtenerOInsertarAsync`).
+- **Namespaces**: siguen la estructura de carpetas (`PalermoScraper.Domain.Entities`).
+
+### 14.2 Estilo
+
+- `file-scoped namespace` (C# 10+).
+- `var` cuando el tipo es evidente por el lado derecho.
+- Nullable reference types activado (`<Nullable>enable</Nullable>`).
+- `CancellationToken` como último parámetro en todos los métodos async.
+- Sin `Thread.Sleep`: usar `Task.Delay`.
+
+### 14.3 Manejo de nulos
+
+- Las propiedades que pueden no venir en el HTML se tipan como `nullable` (`string?`, `int?`).
+- En el parser, usar `?.` y `?? null` en lugar de `try/catch`.
+- Los `DBNull.Value` se manejan explícitamente al persistir: `(object?)valor ?? DBNull.Value`.
+
+### 14.4 Tests
+
+- Un test por parser, con el HTML real como `Fixture`.
+- Los fixtures se guardan como archivos `.html` en `tests/PalermoScraper.Tests/Fixtures/`.
+- Nombres de tests: `Metodo_Condicion_ResultadoEsperado()`.
+
+---
+
+## Licencia
+
+Proyecto privado. No distribuir.
