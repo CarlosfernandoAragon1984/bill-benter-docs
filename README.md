@@ -98,4 +98,154 @@ Cada carrera dentro de la página de reunión tiene **3 bloques**:
 ---
 
 ## 5. Estructura del repositorio
--benter-docs
+-benter-docsPalermoScraper.sln
+│
+├── src/
+│ ├── PalermoScraper.Domain/ # Entidades, Value Objects, Interfaces. Sin dependencias.
+│ │ ├── Entities/
+│ │ ├── ValueObjects/
+│ │ └── Abstractions/
+│ │ ├── Repositories/
+│ │ └── Scraping/
+│ │
+│ ├── PalermoScraper.Application/ # Servicios de orquestación.
+│ │ └── Services/
+│ │
+│ ├── PalermoScraper.Infrastructure/ # HTTP, parsers, repositorios ADO.NET.
+│ │ ├── Http/
+│ │ ├── Parsing/
+│ │ ├── Scrapers/
+│ │ └── Repositories/
+│ │
+│ └── PalermoScraper.Console/ # Punto de entrada + configuración.
+│ ├── Program.cs
+│ └── appsettings.json
+│
+└── tests/
+└── PalermoScraper.Tests/ # Tests unitarios con HTML real como fixture.
+└── Fixtures/                           
+### 5.1 Dependencias entre proyectos
+Console ──► Infrastructure ──► Application ──► Domain
+│ │ │
+└──────────────┴──────────────────┘
+
+El dominio no depende de nadie. Las flechas solo van hacia adentro.
+
+---
+
+## 6. Entidades del dominio
+
+Espejo de las tablas de `bill_benter_v2`. Los nombres y tipos coinciden con el esquema existente.
+
+| Entidad | Tabla BD | Descripción |
+|---|---|---|
+| `Hipodromo` | `dbo.Hipodromos` | Lugar físico donde se corren las carreras |
+| `Caballo` | `dbo.Caballos` | Caballo participante |
+| `Jinete` | `dbo.Jinetes` | Jinete que monta |
+| `Entrenador` | `dbo.Entrenadores` | Entrenador (cuidador) |
+| `Carrera` | `dbo.Carreras` | Carrera individual |
+| `Participacion` | `dbo.Participaciones` | Inscripción de un caballo en una carrera |
+| `ResultadoCarrera` | `dbo.Resultados_Carreras` | Resultado deportivo de una participación |
+
+> **Nota**: las entidades `Variables_Calculadas` y `Modelo_Coeficientes` **no** son parte del scraper. Se calculan/populan por fuera (`sp_RecalcularVariablesPointInTime` y entrenamiento en Python).
+
+---
+
+## 7. Value Objects
+
+Estructuras que representan **lo que sale del HTML**, antes de persistirse. Viven en el dominio y no dependen de HtmlAgilityPack.
+
+| Value Object | Qué representa |
+|---|---|
+| `ReunionDescubierta` | Una reunión descubierta en el calendario (fecha + ID del sitio) |
+| `CarreraScrapeada` | Una carrera completa extraída de `ver-carreras/{id}` |
+| `ParticipanteScrapeado` | Un caballo participante con todos sus datos de la tabla de resultados |
+| `GanadorScrapeado` | Datos biográficos del ganador extraídos del bloque C |
+
+---
+
+## 8. Interfaces
+
+### 8.1 Repositorios (`Domain/Abstractions/Repositories`)
+
+```csharp
+IHipodromoRepository     → ObtenerOInsertarAsync, ObtenerIdPorNombreAsync
+ICaballoRepository       → ObtenerOInsertarAsync, ActualizarDatosBiograficosAsync
+IJineteRepository        → ObtenerOInsertarAsync
+IEntrenadorRepository    → ObtenerOInsertarAsync
+ICarreraRepository       → ObtenerOInsertarAsync
+IParticipacionRepository → ObtenerOInsertarAsync
+IResultadoRepository     → UpsertAsync
+### 8.2 Scrapers (Domain/Abstractions/Scraping)
+ICalendarioScraper → ObtenerReunionesAsync(int anio)
+IReunionScraper    → ScrapearAsync(int verDiaId, DateOnly fecha)
+9. Mapeo HTML → Base de datos
+9.1 Bloque A — Metadata de carrera
+Celda HTML	Campo BD	Notas
+FECHA	Carreras.Fecha	dd/MM/yyyy
+HORA	no mapeado	Sin columna en BD
+DISTANCIA	Carreras.Distancia	int, en metros
+PISTA	Carreras.Superficie + Carreras.CondicionPista	split por |
+TIEMPO	no mapeado	Tiempo del ganador, sin columna
+CONDICIóN	Carreras.ClaseCarrera	texto completo
+PREMIOS	Carreras.PremioTotal	primer $ = monto del 1°
+Nro. X - NOMBRE	Carreras.NombreCarrera	del <h2>
+9.2 Bloque B — Tabla de participantes
+Columna HTML	Campo BD	Notas
+POS..	Resultados_Carreras.PosicionFinal	RET → NULL
+NRO.	Participaciones.NumeroCaja	int
+COMPETIDOR	Caballos.Nombre	+ ver-caballo/{id} en el href
+DISTANCIA.	Resultados_Carreras.DistanciaGanador	texto → parseo tolerante
+JOCKEY	Jinetes.Nombre	
+CUIDADOR	Entrenadores.Nombre	
+CABALLERIZA.	no mapeado	Sin columna en BD
+PESO JOCKEY / CABALLO	Participaciones.PesoAsignado	split por /, se toma el primero
+PAGARIA	Participaciones.Odds	decimal
+9.3 Bloque C — Datos del ganador
+Celda HTML	Campo BD	Notas
+Nombre completo	Caballos.Nombre	confirmación
+Fecha de nacimiento	Caballos.FechaNacimiento	dd-MM-yyyy
+Sexo	Caballos.Sexo	MACHO → M, HEMBRA → H
+Pelaje	Caballos.Color	
+Criador	Caballos.Criador	
+Caballeriza	no mapeado	Sin columna en BD
+Padre, Madre, Abuelo Materno	no mapeado	Sin columna en BD
+9.4 Datos descartados (sin columna en BD)
+Los siguientes datos se extraen del HTML pero no se persisten porque el DDL no tiene columna. Se loguean en nivel Debug para auditoría:
+
+Hora de la carrera
+
+Tiempo del ganador
+
+Peso del caballo (segundo valor de PESO JOCKEY / CABALLO)
+
+Caballeriza
+
+Padre, madre, abuelo materno
+
+Dividendos (Exacta, Trifecta, etc.)
+
+Si en el futuro se decide persistir alguno, solo hay que agregar la columna al DDL y extender el repositorio. El parser ya los extrae.
+
+## 10. Estrategia de scraping
+### 10.1 Flujo general
+┌────────────────────────────────────────────────┐
+│ FASE 1: Descubrir reuniones                    │
+│ GET /es/turf/calendario-de-carreras/{año}      │
+│ → [{ fecha, verDiaId }]                        │
+└───────────────────┬────────────────────────────┘
+                    ▼
+┌────────────────────────────────────────────────┐
+│ FASE 2: Scrapear cada reunión                  │
+│ GET /es/turf/ver-carreras/{verDiaId}           │
+│ → por cada carrera:                            │
+│   ├── Bloque A → Carrera                       │
+│   ├── Bloque B → Participantes + Resultados    │
+│   └── Bloque C → Caballo (update)              │
+└───────────────────┬────────────────────────────┘
+                    ▼
+┌────────────────────────────────────────────────┐
+│ FASE 3: Persistir respetando FKs               │
+│ Hipodromo → Caballo/Jinete/Entrenador          │
+│ → Carrera → Participacion → Resultado          │
+└────────────────────────────────────────────────┘
