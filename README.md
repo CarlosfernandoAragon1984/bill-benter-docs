@@ -374,27 +374,27 @@ dotnet run --project src/PalermoScraper.Console -- reunion 24834
 
 ### Fase 2 — Parsers y Scrapers
 - [x] `CalendarioParser` + tests con HTML real
-- [ ] `CalendarioScraper`
-- [ ] `ReunionParser` (3 bloques) + tests
-- [ ] `ReunionScraper`
-- [ ] `CaballoParser` + `CaballoScraper` (opcional)
+- [x] `CalendarioScraper`
+- [x] `ReunionParser` (3 bloques) + tests
+- [x] `ReunionScraper`
+- [x] `CaballoParser` + `CaballoScraper` (opcional)
 
 ### Fase 3 — Persistencia
-- [ ] `Database` (ya creado)
-- [ ] `HipodromoRepository`
-- [ ] `CaballoRepository`
-- [ ] `JineteRepository`
-- [ ] `EntrenadorRepository`
-- [ ] `CarreraRepository`
-- [ ] `ParticipacionRepository`
-- [ ] `ResultadoRepository`
+- [x] `Database` (ya creado)
+- [x] `HipodromoRepository`
+- [x] `CaballoRepository`
+- [x] `JineteRepository`
+- [x] `EntrenadorRepository`
+- [x] `CarreraRepository`
+- [x] `ParticipacionRepository`
+- [x] `ResultadoRepository`
 
 ### Fase 4 — Orquestación
-- [ ] `ScrapeoCalendarioService`
-- [ ] `ScrapeoReunionService`
-- [ ] Modo `reunion` funcional end-to-end
-- [ ] Modo `historico` (batch de varios años)
-- [ ] Ejecución de `sp_RecalcularVariablesPointInTime` al finalizar
+- [x] `ScrapeoCalendarioService`
+- [x] `ScrapeoReunionService`
+- [x] Modo `reunion` funcional end-to-end
+- [x] Modo `historico` (batch de varios años)
+- [x] Ejecución de `sp_RecalcularVariablesPointInTime` al finalizar
 
 ### Fase 5 — Operación
 - [ ] Programación diaria (Task Scheduler / cron)
