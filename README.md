@@ -373,7 +373,7 @@ dotnet run --project src/PalermoScraper.Console -- reunion 24834
 - [ ] Configuración + DI + `Program.cs`
 
 ### Fase 2 — Parsers y Scrapers
-- [ ] `CalendarioParser` + tests con HTML real
+- [x] `CalendarioParser` + tests con HTML real
 - [ ] `CalendarioScraper`
 - [ ] `ReunionParser` (3 bloques) + tests
 - [ ] `ReunionScraper`
