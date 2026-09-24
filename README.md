@@ -433,7 +433,11 @@ dotnet run --project src/PalermoScraper.Console -- reunion 24834
 - Nombres de tests: `Metodo_Condicion_ResultadoEsperado()`.
 
 ---
+## 📚 Documentos
 
+- [Guía de uso](GUIA_USO.md) — Comandos para operar el scraper, ML y predicción.
+- [Documento técnico](Documento_BillBenter_v2.md) — Especificación del sistema.
+- [README del scraper](README.md) — Guía técnica del scraper.
 ## Licencia
 
 Proyecto privado. No distribuir.
